@@ -30,7 +30,7 @@ def binarizeErodeAndDilate(croppedTestImage):
     kernel = np.ones((2, 2), np.uint8)
     img_erosion = cv2.erode(bin_image2, kernel, iterations=3)
     final_image = cv2.dilate(img_erosion, kernel, iterations=1)
-    #cv2.imshow("being binarized", final_image)
+    cv2.imshow("being binarized", final_image)
     bin_image2 = cv2.medianBlur(bin_image2, 3)
     return final_image
 
@@ -42,7 +42,7 @@ def cropImage(cropMe):
 
 def houghTransform(manipulateMe, drawOnMe, drawBool):
 
-    print("This is the version: " + cv2.__version__)
+    #print("This is the version: " + cv2.__version__)
 
 
     circles = cv2.HoughCircles(manipulateMe, cv2.HOUGH_GRADIENT, 2, 200, param1=70, param2=17, minRadius=80, maxRadius=110)
@@ -55,6 +55,7 @@ def houghTransform(manipulateMe, drawOnMe, drawBool):
 
         listOfCoordinates.append(i)
         if drawBool:
+            pass
             # This circles the outter circle, with a color of (0, 255,0) and a thickness of 2
             cv2.circle(drawOnMe, (i[0], i[1]), i[2], (0, 255, 0), thick)
 
@@ -64,7 +65,7 @@ def houghTransform(manipulateMe, drawOnMe, drawBool):
 
 
 
-def rotateAndScale(img, scaleFactor = 0.5, degreesCCW = 30):
+def rotateAndScale(img, scaleFactor = 1, degreesCCW = 30):
     (oldY,oldX) = (img.shape[0], img.shape[1]) #note: numpy uses (y,x) convention but most OpenCV functions use (x,y)
     M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW, scale=scaleFactor) #rotate about center of image.
 
@@ -87,6 +88,26 @@ def rotateAndScale(img, scaleFactor = 0.5, degreesCCW = 30):
     return rotatedImg
 
 
+def rotateAndScale2(img, scaleFactor = 1, degreesCCW = 30):
+    (oldY,oldX) = (img.shape[0], img.shape[1]) #note: numpy uses (y,x) convention but most OpenCV functions use (x,y)
+    M = cv2.getRotationMatrix2D(center=(183,215), angle=degreesCCW, scale=scaleFactor) #rotate about center of image.
 
+    #choose a new image size.
+    newX,newY = oldX*scaleFactor,oldY*scaleFactor
+    #include this if you want to prevent corners being cut off
+    r = np.deg2rad(degreesCCW)
+    newX,newY = (abs(np.sin(r)*newY) + abs(np.cos(r)*newX),abs(np.sin(r)*newX) + abs(np.cos(r)*newY))
+
+    #the warpAffine function call, below, basically works like this:
+    # 1. apply the M transformation on each pixel of the original image
+    # 2. save everything that falls within the upper-left "dsize" portion of the resulting image.
+
+    #So I will find the translation that moves the result to the center of that region.
+    (tx,ty) = ((newX-oldX)/2,(newY-oldY)/2)
+    M[0,2] += tx #third column of matrix holds translation, which takes effect after rotation.
+    M[1,2] += ty
+
+    rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
+    return rotatedImg
 
 

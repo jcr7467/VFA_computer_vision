@@ -80,14 +80,29 @@ cv2.imshow("blurrrrrr2", newBlurredImage)
 circles = cv2.HoughCircles(bin_image2, cv2.HOUGH_GRADIENT, 2, 200, param1=70, param2=17, minRadius=60, maxRadius=70)
 circles = np.uint16(np.around(circles))
 
+coordinatesList = []
+
 for i in circles[0, :]:
-    cv2.circle(testImage, (i[0], i[1]), i[2], (0, 255, 0), 2)
-    cv2.circle(testImage, (i[0], i[1]), 2, (0, 255, 0), 3)
+
+    coordinatesList.append(i)
+    #cv2.circle(testImage, (i[0], i[1]), i[2], (0, 255, 0), 2)
+    #cv2.circle(testImage, (i[0], i[1]), 2, (0, 255, 0), 3)
 
 
 cv2.imshow("Final", testImage)
 
 
+
+circles = cv2.HoughCircles(bin_image2, cv2.HOUGH_GRADIENT, 2, 200, param1=70, param2=17, minRadius=60, maxRadius=70)
+circles = np.uint16(np.around(circles))
+
+for i in circles[0, :]:
+
+    coordinatesList.append(i)
+    cv2.circle(testImage, (i[0], i[1]), i[2], (0, 255, 0), 2)
+    cv2.circle(testImage, (i[0], i[1]), 2, (0, 255, 0), 3)
+
+cv2.imshow("Final2", testImage)
 
 
 
