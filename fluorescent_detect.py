@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import math
+import copy
+
 
 
 
@@ -17,9 +19,16 @@ def cropImage(cropMe):
 
     return cropMe[1800:3400, 760:2430]
 
-
-
 def rotateAndScale(img, scaleFactor = 1, degreesCCW = 30):
+    '''
+
+    :param img: the image that will get rotated and returned
+    :param scaleFactor: option to enlarge, we always use at 1
+    :param degreesCCW: degrees NOT RADIANS to rotate CCW. Neg value will turn CW
+    :return: rotated image
+    '''
+
+
     (oldY,oldX) = (img.shape[0], img.shape[1]) #note: numpy uses (y,x) convention but most OpenCV functions use (x,y)
     M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW, scale=scaleFactor) #rotate about center of image.
 
@@ -42,6 +51,13 @@ def rotateAndScale(img, scaleFactor = 1, degreesCCW = 30):
     return rotatedImg
 
 def shiftBy(deltaX, deltaY, img):
+    '''
+
+    :param deltaX: shift by this delta x
+    :param deltaY: shift by this delta y
+    :param img: image to shift
+    :return: shifted image
+    '''
 
     num_rows, num_cols = img.shape[:2]
 
@@ -50,10 +66,13 @@ def shiftBy(deltaX, deltaY, img):
 
     return img_translation
 
-
-
-
 def matchTemplate(image, template):
+    '''
+
+    :param image: image to match template to
+    :param template: input option to determine the template to use
+    :return:
+    '''
 
 
     template_dictionary = {
@@ -87,6 +106,12 @@ def matchTemplate(image, template):
     return (midXPoint, midYPoint)
 
 def findAngle(alignA, alignB):
+    '''
+
+    :param alignA: alignment marker A
+    :param alignB: alignment marker B
+    :return: (angleINRADIANS, direction)
+    '''
 
     deltaX = abs(int(alignA[0]) - int(alignB[0]))
     deltaY = int(alignA[1]) - int(alignB[1])
@@ -101,6 +126,13 @@ def findAngle(alignA, alignB):
     return (math.atan(deltaY/deltaX), direction)
 
 def rotateImage(image, alignA, alignB):
+    '''
+
+    :param image: image to rotate
+    :param alignA: coordinates for alignment marker A
+    :param alignB: coordinates for alignment marker B
+    :return: rotated image
+    '''
 
     angleToRotate, direction = findAngle(alignA, alignB)
 
@@ -111,7 +143,12 @@ def rotateImage(image, alignA, alignB):
 
     return rotateAndScale(image, 1, angleToRotate)
 
-def alignImage2(image):
+def alignImage(image):
+    '''
+
+    :param image: image to be aligned
+    :return: shifted and rotated image
+    '''
 
 
     alignA = matchTemplate(image, "template_A")
@@ -121,9 +158,7 @@ def alignImage2(image):
     #cv2.imshow("h", rotated_image)
     new_alignA = matchTemplate(rotated_image, "template_A")
 
-    cv2.circle(rotated_image, new_alignA, 80, (255, 255, 0), 2)
-
-
+    #cv2.circle(rotated_image, new_alignA, 80, (255, 255, 0), 2)
 
 
     alignAX = new_alignA[0]
@@ -133,93 +168,107 @@ def alignImage2(image):
     #cv2.circle(shifted, (296, 1308), 80, (255, 255, 0), 2)
     return shifted
 
+def drawCirclesAndLabels(image, pointMap):
+
+    copyImage = copy.deepcopy(image)
+
+    for key, value in pointMap.items():
+
+        cv2.circle(copyImage, value, 60, (255, 255, 255), 2)
+
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fontScale = 2
+        color = (255, 255, 255)
+        thickness = 2
+
+        copyImage = cv2.putText(copyImage, key, value, font,
+                            fontScale, color, thickness, cv2.LINE_AA)
+    return copyImage
 
 
 
 
 def main():
 
+    pointMap = {
+        'A': (296, 291),
+        'B': (1374, 291),
+        'C': (296, 1308),
+        'D': (1374, 1308),
+        '1': (690, 440),
+        '2': (985, 440),
+        '3': (445,665),
+        '4': (690,665),
+        '5': (985, 665),
+        '6': (1225, 665),
+        '7': (835, 800),
+        '8': (445, 935),
+        '9': (690, 935),
+        '10': (985, 935),
+        '11': (1225, 935),
+        '12': (690, 1170),
+        '13': (985, 1170)
+    }
+
 
 
     imagePath = 'fluorescent/image_6.tif'
     image = cv2.imread(imagePath)
     image = cropImage(image)
-    #cv2.imshow("Original", image)
+
+
+    aligned_image = alignImage(image)
 
 
 
 
+    labeledImage = drawCirclesAndLabels(aligned_image, pointMap)
+    cv2.imshow("Aligned Image", aligned_image)
+    cv2.imshow("Aligned Image with labels", labeledImage)
+
+    aligned_image = cv2.cvtColor(aligned_image, cv2.COLOR_BGR2GRAY)
+    cv2.imshow("Name", aligned_image)
+    #print(aligned_image[1170][690])
+    #print(aligned_image[690][1170])
 
 
+    for i in range(len(aligned_image[0])):
+        if aligned_image[1225][i] > 5:
+            print(aligned_image[1225][i])
+            print(i)
+            print("*********")
 
 
-    shifted = alignImage2(image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
+    '''
+    cv2.circle(aligned_image, (690, 440), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (985, 440), 60, (255, 155, 70), 2)
 
+    cv2.circle(aligned_image, (445, 665), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (690, 665), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (985, 665), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (1225, 665), 60, (255, 155, 70), 2)
 
+    cv2.circle(aligned_image, (835, 800), 60, (255, 155, 70), 2)
 
-    cv2.circle(shifted, (690, 440), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (985, 440), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (445, 935), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (690, 935), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (985, 935), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (1225, 935), 60, (255, 155, 70), 2)
 
+    cv2.circle(aligned_image, (690, 1170), 60, (255, 155, 70), 2)
+    cv2.circle(aligned_image, (985, 1170), 60, (255, 155, 70), 2)
+    '''
 
-
-    cv2.circle(shifted, (445, 665), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (690, 665), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (985, 665), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (1225, 665), 60, (255, 155, 70), 2)
-
-
-
-    cv2.circle(shifted, (835, 800), 60, (255, 155, 70), 2)
-
-
-
-    cv2.circle(shifted, (445, 935), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (690, 935), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (985, 935), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (1225, 935), 60, (255, 155, 70), 2)
-
-    cv2.circle(shifted, (690, 1170), 60, (255, 155, 70), 2)
-    cv2.circle(shifted, (985, 1170), 60, (255, 155, 70), 2)
-
-    cv2.imshow("shifted", shifted)
 
 
     '''Convert image to grayscale using cvtColor. You will get a matrix of values between 0 to 255. Get the average over 
     the values of this matrix. '''
 
 
-
-
-    '''
-    binarizedImage = binarizeErodeAndDilate(image)
-    #cv2.imshow("Binarized", binarizedImage)
-
-    coords = houghTransformReturnCoords(binarizedImage, image, True)
-    cv2.imshow("Houghed", image)
-
-    rotatedAndShifted = alignImage(coords, image)
-    #cv2.imshow("RotatedShift", rotatedAndShifted)
-
-    #val = matchTemplate(rotatedAndShifted)
-
-
-    secBinarizedImage = binarizeErodeAndDilate(rotatedAndShifted)
-
-    secCoords = houghTransformReturnCoords(secBinarizedImage, rotatedAndShifted, False)
-
-
-    print(secCoords)
-    cv2.circle(rotatedAndShifted, (289, 297), 80, (255, 255, 0), 2)
-    cv2.circle(rotatedAndShifted, (1379, 297), 80, (255, 255, 0), 2)
-    #cv2.imshow("Second Hough", rotatedAndShifted)
-
-
-    '''
-
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
