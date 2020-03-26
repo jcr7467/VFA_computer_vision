@@ -1,14 +1,5 @@
 import cv2
-import numpy as np
-import math
-from helper_functions import cropImage
-from helper_functions import SortedCircle
-from helper_functions import binarizeErodeAndDilate
-from helper_functions import houghTransform
-from helper_functions import rotateAndScale
-from helper_functions import rotateAndScale2
-
-
+from tests.helper_functions import cropImage
 
 testImagePath = './images/dng/signal/tiff-conv/LD011862_sig.tif'
 

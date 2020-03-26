@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-from crop_images import cropImage2
+from tests.crop_images import cropImage2
 
 
 

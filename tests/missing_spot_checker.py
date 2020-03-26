@@ -1,7 +1,5 @@
 import cv2
-import numpy as np
-import math
-from binarize_and_determine_coords import findCoordinates
+from tests.binarize_and_determine_coords import findCoordinates
 
 class SortedCircle:
     def __init__(self, circleIn):

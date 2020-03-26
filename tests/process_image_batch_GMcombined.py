@@ -1,9 +1,7 @@
 import cv2
-import numpy as np
 #import matplotlib
 
-from IGMTESTINGCROPPED import cropImage
-from IGMTESTINGCROPPED import houghT
+from tests.IGMTESTINGCROPPED import houghT
 
 
 pathToImages = './images/'

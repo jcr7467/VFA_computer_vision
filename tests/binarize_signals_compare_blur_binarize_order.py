@@ -1,13 +1,12 @@
 import cv2
-import numpy as np
 
-from IGMTESTINGCROPPED import cropImage
-from IGMTESTINGCROPPED import cropImage2
-
+from tests.IGMTESTINGCROPPED import cropImage
+from tests.IGMTESTINGCROPPED import cropImage2
 
 
 
-testImagePath = './images/dng/background/tiff-conv/LD154_bkg.tif'
+
+testImagePath = './images/dng/signal/tiff-conv/LD154_sig.tif'
 
 
 #########################################################
@@ -36,20 +35,51 @@ croppedTestImage = cropImage2(croppedTestImage)
 #########################################################
 
 
-cv2.imshow("super original", testImage)
+#cv2.imshow("The original image cropped down", testImage)
 
 
 
+
+
+
+
+
+
+
+##THIS IS THE BINARIZE FIRST BLUR LATER
 #########################################################
 # Grayscale and binarization of testImage
 #########################################################
 grayTestImage = testImage[:, :, 1]
 grayTestImage= cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
-img = cv2.medianBlur(grayTestImage, 5)
 
 #This is the binarized image
-bin_image = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 19, 4)
-#cv2.imshow('binarized', bin_image)
+bin_image = cv2.adaptiveThreshold(grayTestImage, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 23, 2)
+cv2.imshow('Middle1, binarize', bin_image)
+img = cv2.medianBlur(bin_image, 9)
+cv2.imshow('Final1, blur', img)
+
+
+
+##THIS IS THE BLUR FIRST BINARIZE LATER
+#########################################################
+# Grayscale and binarization of testImage
+#########################################################
+grayTestImage2 = testImage[:, :, 1]
+grayTestImage2 = cv2.cvtColor(testImage, cv2.COLOR_BGR2GRAY)
+img2 = cv2.medianBlur(grayTestImage2, 9)
+cv2.imshow('Middle2, blur', img2)
+#This is the binarized image
+bin_image2 = cv2.adaptiveThreshold(img2, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 23, 2)
+cv2.imshow('Final2, binarize', bin_image2)
+
+
+
+'''
+
+#This is the binarized image
+bin_image = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 23, 2)
+cv2.imshow('binarized', bin_image)
 
 #########################################################
 
@@ -172,7 +202,7 @@ cv2.imshow("circle detection2", croppedTestImage)
 
 
 
-
+'''
 
 
 
