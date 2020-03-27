@@ -1,3 +1,30 @@
+'''
+HOW THIS PROGRAM WORKS ON A HIGH LEVEL:
+
+
+1. First it crops the image to our specified dimensions, to which right now it is set to 1670x1600 -> width x height
+
+2. Then it uses template matching in order to find the top two alignment markers, and using the points
+of the alignment markers, it rotates the image.
+
+3. Then it shifts the image to where the first alignment marker, Alignment Marker A, is at the spot we
+need it to be now that the image is upright and oriented correctly. In our case, we want that alignment
+marker A to be at the point (296, 291). Once the image is aligned, we then know where the other points are
+because of the predefined grid that we made.
+
+
+4. Once the image is aligned, we make a mask for each individual circle, and multiply (element-wise) it by the original
+image to create a new image that outside of the mask, it is completely black (matrix value of 0) We calculate
+the average light intensity by taking the sum of the image value (inside the mask, the values will remain
+their original values) divided by the sum of the mask
+(this is essentially just the area of the circle because inside the mask,
+there are only 1's and outside it there are only 0's)
+
+We repeat this process for every image in the fluorescent/ directory, which houses all our images that need analysis
+
+'''
+
+
 import cv2
 import numpy as np
 import math
@@ -302,6 +329,15 @@ def findAverageLightIntensity(maskedImage, mask):
 
 
 def findAllCircleAveragesFor(imagePath, displayCirclesBool):
+    '''
+
+    :param imagePath: the image path for the image that we are going to find all the averages for
+    :param displayCirclesBool: Determines if the images will be displayed on the screen, these images
+    are labeled as their corresponding number (or letter if it is an alignment marker) and the circles will be outlined
+    :return:
+    '''
+
+
     pointMap = {
         'A': (296, 291),
         'B': (1374, 291),
