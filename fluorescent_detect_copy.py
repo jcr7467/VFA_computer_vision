@@ -203,10 +203,10 @@ def matchTemplate(image, template):
 
 
     template_dictionary = {
-        'template_A': 'top_left_alignment_marker.tif',
-        'template_B': 'top_right_alignment_marker.tif',
-        'template_C': 'bottom_left_alignment_marker.tif',
-        'template_D': 'bottom_right_alignment_marker.tif'
+        'template_A': 'alignment_marker_A.tif',
+        'template_B': 'alignment_marker_B.tif',
+        'template_C': 'alignment_marker_C.tif',
+        'template_D': 'alignment_marker_D.tif'
     }
 
     template = cv2.imread('fluorescent_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
