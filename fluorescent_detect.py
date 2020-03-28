@@ -112,7 +112,7 @@ def findAngle(alignA, alignB):
     This function finds the corresponding angle between the two top alignment markers, and also returns which
      direction they should be turned to be on the same axis.
     I could probably remake this to just return either a positive or negative angle, but this works for now
-    -----> RETURNS ANGLE IN RADIANS <-----
+    -----> RETURNS ANGLE IN DEGREES <-----
 
     :param alignA: alignment marker A
     :param alignB: alignment marker B
@@ -237,7 +237,7 @@ def alignImage(image):
 
 
 
-def drawCirclesAndLabels(image, pointMap):
+def drawCirclesAndLabels(already_aligned_image, pointMap):
     '''
     This function is just to display the image with the labels that we predetermined,
     it has no impact on the resulting calculations
@@ -246,7 +246,7 @@ def drawCirclesAndLabels(image, pointMap):
     :return:
     '''
 
-    copyImage = copy.deepcopy(image)
+    copyImage = copy.deepcopy(already_aligned_image)
 
     for key, value in pointMap.items():
 
