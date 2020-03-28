@@ -1,35 +1,47 @@
+'''
+HOW THIS PROGRAM WORKS ON A HIGH LEVEL:
+
+
+1. First it crops the image to our specified dimensions, to which right now it is set to 1670x1600 -> width x height
+
+2. Then it uses template matching in order to find the top two alignment markers, and using the points
+of the alignment markers, it rotates the image.
+
+3. Then it shifts the image to where the first alignment marker, Alignment Marker A, is at the spot we
+need it to be now that the image is upright and oriented correctly. In our case, we want that alignment
+marker A to be at the point (296, 291). Once the image is aligned, we then know where the other points are
+because of the predefined grid that we made.
+
+
+4. Once the image is aligned, we make a mask for each individual circle, and multiply (element-wise) it by the original
+image to create a new image that outside of the mask, it is completely black (matrix value of 0) We calculate
+the average light intensity by taking the sum of the image value (inside the mask, the values will remain
+their original values) divided by the sum of the mask
+(this is essentially just the area of the circle because inside the mask,
+there are only 1's and outside it there are only 0's)
+
+We repeat this process for every image in the fluorescent/ directory, which houses all our images that need analysis
+
+'''
+
+
 import cv2
 import numpy as np
 import math
+import copy
+
+#This is for reading the images that are in the fluorescent/ directory
+from os import listdir
+from os.path import isfile, join
 
 
 
 
-
-class Circle:
-    def __init__(self, coord):
-        self.coordinates = coord
-        self.xCoord = coord[0]
-        self.yCoord = coord[1]
-        self.radius = coord[2]
-
-def createCircles(listOfCoordinates):
-    '''
-
-    :param listOfCoordinates: The list created during hough transformation that gives us the list of circles
-    :return:
-    '''
-    circleList = list()
-
-    for coordinates in listOfCoordinates:
-        newCircle = Circle(coordinates)
-        circleList.append(newCircle)
-
-    return circleList
 
 def cropImage(cropMe):
     '''
-
+    This function simply crops the image that we are working with into the specified
+    dimensions that we have hard coded: 1670 x 1600 -> width x height
     :param cropMe: image to be cropped
     :return:
      params of return statement are in [Y, X] cropping ranges
@@ -37,66 +49,104 @@ def cropImage(cropMe):
 
     return cropMe[1800:3400, 760:2430]
 
-def houghTransformReturnCoords(manipulateMe, drawOnMe, drawBool):
+
+
+
+
+
+def matchTemplate(image, template):
     '''
+    This function finds the alignment markers which our program uses to correctly orient the image to our grid
+    If we changed our template to another value, we would simply add the option to our dictionary and the add
+    the image to our flurorescent_templates directory
 
-    :param manipulateMe: the image that we are using to detect the circles.
-    This is the image that has been binarized.
-    :param drawOnMe: This is typically the original image. This is the image
-     that will have the circles drawn on them, should the user elect to enable drawing
-    :param drawBool: Determines if the circles are actually drawn. If not on,
-     then we still have the coordinates of the circles it found.
-    :return:
-    '''
-
-    circles = cv2.HoughCircles(manipulateMe, cv2.HOUGH_GRADIENT, 2, 200, param1=70, param2=17, minRadius=50, maxRadius=100)
-    circles = np.uint16(np.around(circles))
-
-    listOfCoordinates = []
-
-
-    for i in circles[0, :]:
-        lineThickness = 2
-        colorOfCircles = (0, 255, 0)
-        radiusForDot = 2
-        radiusForCircle = i[2]
-        xCoor = i[0]
-        yCoor = i[1]
-
-        listOfCoordinates.append(i)
-        if drawBool:
-            pass
-            # This circles the outter circle, with a color of (0, 255,0) and a thickness of 2
-            cv2.circle(drawOnMe, (xCoor, yCoor), radiusForCircle, colorOfCircles, lineThickness)
-
-            # This circles the center of the circle
-            cv2.circle(drawOnMe, (xCoor, yCoor), radiusForDot, colorOfCircles, lineThickness)
-    return listOfCoordinates
-
-def binarizeErodeAndDilate(transformMe):
-    '''
-
-    :param transformMe: this is the image that we will binarize and will return in the end
+    :param image: image to match template to
+    :param template: input option to determine the template to use
     :return:
     '''
 
 
-    grayedImage = cv2.cvtColor(transformMe, cv2.COLOR_BGR2GRAY)
-    blurredGrayImage = cv2.medianBlur(grayedImage, 13)
-    #cv2.imshow("Gray", grayedImage)
-    #cv2.imshow("Grayblur", blurredGrayImage)
+    template_dictionary = {
+        'template_A': 'alignment_marker_A.tif',
+        'template_B': 'alignment_marker_B.tif',
+        'template_C': 'alignment_marker_C.tif',
+        'template_D': 'alignment_marker_D.tif'
+    }
 
 
-    binImage = cv2.adaptiveThreshold(blurredGrayImage, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 23, 2)
+    template = cv2.imread('fluorescent_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
+
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    w,h = template.shape[::-1]
+
+    result = cv2.matchTemplate(gray_image, template, cv2.TM_CCOEFF_NORMED)
+
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+    top_left = max_loc
+    bottom_right = (top_left[0] + w, top_left[1] + h)
 
 
-    #cv2.imshow("Grayblur", binImage)
+    deltaX = bottom_right[0] - top_left[0]
+    deltaY = bottom_right[1] - top_left[1]
+    midXPoint = top_left[0] + deltaX//2
+    midYPoint = top_left[1] + deltaY//2
+
+
+    #cv2.rectangle(image, top_left, bottom_right, 255, 2)
+    #cv2.circle(image, (midXPoint, midYPoint), 80, (255, 255, 0), 2)
+    #cv2.circle(image, (midXPoint, midYPoint), 2, (255, 255, 0), 2)
+
+
+    return (midXPoint, midYPoint)
 
 
 
-    return binImage
 
-def rotateAndScale(img, scaleFactor = 1, degreesCCW = 30):
+
+
+def findAngle(alignA, alignB):
+    '''
+
+    This function finds the corresponding angle between the two top alignment markers, and also returns which
+     direction they should be turned to be on the same axis.
+    I could probably remake this to just return either a positive or negative angle, but this works for now
+    -----> RETURNS ANGLE IN RADIANS <-----
+
+    :param alignA: alignment marker A
+    :param alignB: alignment marker B
+    :return: (angleINRADIANS, direction)
+
+    '''
+
+    deltaX = abs(int(alignA[0]) - int(alignB[0]))
+    deltaY = int(alignA[1]) - int(alignB[1])
+
+    if (deltaY) >= 0:
+        direction = "CW"
+    else:
+        direction = "CCW"
+
+    deltaY = abs(deltaY)
+
+    return (math.atan(deltaY/deltaX), direction)
+
+
+
+
+
+
+def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
+    '''
+
+    :param img: the image that will get rotated and returned
+    :param scaleFactor: option to enlarge, we always use at 1
+    :param degreesCCW: DEGREES NOT RADIANS to rotate CCW. Neg value will turn CW
+    :return: rotated image
+    '''
+
+
     (oldY,oldX) = (img.shape[0], img.shape[1]) #note: numpy uses (y,x) convention but most OpenCV functions use (x,y)
     M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW, scale=scaleFactor) #rotate about center of image.
 
@@ -116,137 +166,23 @@ def rotateAndScale(img, scaleFactor = 1, degreesCCW = 30):
     M[1,2] += ty
 
     rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
+
     return rotatedImg
 
-def shiftBy(deltaX, deltaY, img):
-
-    num_rows, num_cols = img.shape[:2]
-
-    translation_matrix = np.float32([ [1,0,deltaX], [0,1,deltaY] ])
-    img_translation = cv2.warpAffine(img, translation_matrix, (num_cols, num_rows))
-
-    return img_translation
 
 
 
-def alignImage(coords, image):
 
-    #This section finds the circles with the at the top of the image (the two alignment markers)
-    circlesList = createCircles(coords)
-    circlesList.sort(key=lambda Circle: Circle.yCoord)
-    bottom1 = circlesList[-1].yCoord
-    bottom2 = circlesList[-2].yCoord
-    print(bottom1)
-    print(bottom2)
-    top1 = circlesList[0]
-    top2 = circlesList[1]
-    print(top1.yCoord)
-    print(top2.yCoord)
-    print(image.shape[0])
-
-    if top1.xCoord > top2.xCoord:
-        right1 = top1
-        left1 = top2
-    else:
-        right1 = top2
-        left1 = top1
-
-
-    #This determines which way we need to rotate the image
-    exp1 = int(right1.yCoord) - int(left1.yCoord)
-    if exp1 > 0:
-        direction = "CCW"
-    else:
-        direction = "CW"
-
-
-    deltaY = abs(exp1)
-    deltaX = right1.xCoord - left1.xCoord
-
-    #print(deltaX, deltaY)
-    #print(image.shape[1]) # 1670
-    #print(image.shape[1] - deltaX)
-    #print(586//2)
-
-
-
-    phi = math.atan(deltaY/deltaX)
-    if direction == "CW":
-        phi = phi * -1
-
-
-    #print("Radians: " + str(phi))
-    #print("Degrees: " + str(phi * 180/math.pi))
-
-    phi = phi * 180/math.pi
-    rotatedImage = rotateAndScale(image, 1, phi)
-    #cv2.imshow("Rotated", rotatedImage)
-    print(293 - left1.xCoord)
-    print(1377 - right1.xCoord)
-
-
-    rotatedAndShiftedImage = shiftBy(293-left1.xCoord, 289 - left1.yCoord, rotatedImage)
-
-    return rotatedAndShiftedImage
-
-    '''
-    print(left1.xCoord)
-    print(right1.xCoord)
-    shift = 293 - left1.xCoord
-
-    rotateShift = shiftBy(shift, 0, rotate)
-    cv2.imshow("RotatedShift", rotateShift)
-    '''
-
-
-def matchTemplate(image, template):
-
-
-    template_dictionary = {
-        'template_A': 'alignment_marker_A.tif',
-        'template_B': 'alignment_marker_B.tif',
-        'template_C': 'alignment_marker_C.tif',
-        'template_D': 'alignment_marker_D.tif'
-    }
-
-    template = cv2.imread('fluorescent_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    w,h = template.shape[::-1]
-
-    result = cv2.matchTemplate(gray_image, template, cv2.TM_CCOEFF_NORMED)
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-    top_left = max_loc
-    bottom_right = (top_left[0] + w, top_left[1] + h)
-
-
-    deltaX = bottom_right[0] - top_left[0]
-    deltaY = bottom_right[1] - top_left[1]
-    midXPoint = top_left[0] + deltaX//2
-    midYPoint = top_left[1] + deltaY//2
-
-
-    #cv2.rectangle(image, top_left, bottom_right, 255, 2)
-    #cv2.circle(image, (midXPoint, midYPoint), 80, (255, 255, 0), 2)
-    #cv2.circle(image, (midXPoint, midYPoint), 2, (255, 255, 0), 2)
-
-
-    return (midXPoint, midYPoint)
-
-def findAngle(alignA, alignB):
-
-    deltaX = abs(int(alignA[0]) - int(alignB[0]))
-    deltaY = int(alignA[1]) - int(alignB[1])
-
-    if (deltaY) >= 0:
-        direction = "CW"
-    else:
-        direction = "CCW"
-
-    deltaY = abs(deltaY)
-
-    return (math.atan(deltaY/deltaX), direction)
 
 def rotateImage(image, alignA, alignB):
+    '''
+    This function calls the findAngle function and we use the return values from that function to pass into the
+     rotateAndScale function which actually does the rotation
+    :param image: image to rotate
+    :param alignA: coordinates for alignment marker A
+    :param alignB: coordinates for alignment marker B
+    :return: rotated image
+    '''
 
     angleToRotate, direction = findAngle(alignA, alignB)
 
@@ -257,33 +193,229 @@ def rotateImage(image, alignA, alignB):
 
     return rotateAndScale(image, 1, angleToRotate)
 
-def alignImage2(image):
 
 
+
+
+
+def shiftBy(deltaX, deltaY, img):
+    '''
+    If delta values are negative, the translation matrix will move it the correct direction,
+    so we dont have to worry about the negative values
+    :param deltaX: shift by this delta x
+    :param deltaY: shift by this delta y
+    :param img: image to shift
+    :return: shifted image
+    '''
+
+    num_rows, num_cols = img.shape[:2]
+
+    translation_matrix = np.float32([ [1,0,deltaX], [0,1,deltaY] ])
+    img_translation = cv2.warpAffine(img, translation_matrix, (num_cols, num_rows))
+
+    return img_translation
+
+
+
+
+
+
+def alignImage(image):
+    '''
+    This function combines the shiftBy function and the rotateImage function into one.
+    Essentially places our image on our predetermined grid. First it rotates the image,
+    and then it finds the new coordinates for Alignment Marker A. Using these new coordinates,
+    it shifts the entire image such that the new Alignment Marker A coordinates are in the spot we want them to be.
+
+    FOR THIS SETUP, WE WANT ALIGNMENT MARKER A TO BE ON COORDINATES: -> (296, 291)
+
+    :param image: image to be aligned
+    :return: shifted and rotated image
+    '''
+
+
+    # Rotates the image
     alignA = matchTemplate(image, "template_A")
     alignB = matchTemplate(image, "template_B")
     rotated_image = rotateImage(image, alignA, alignB)
 
-    cv2.imshow("h", rotated_image)
+    # Shifts the image
     new_alignA = matchTemplate(rotated_image, "template_A")
-
-    cv2.circle(rotated_image, new_alignA, 80, (255, 255, 0), 2)
-
-    cv2.imshow("h2", rotated_image)
-
-
-
-
-
-
-
-
     alignAX = new_alignA[0]
     alignAY = new_alignA[1]
 
-    shifted = shiftBy(296 - alignAX, 291 - alignAY, rotated_image)
-    cv2.circle(shifted, (296, 1308), 80, (255, 255, 0), 2)
-    return shifted
+    shifted_and_rotated = shiftBy(296 - alignAX, 291 - alignAY, rotated_image)
+
+
+    return shifted_and_rotated
+
+
+
+
+
+
+def drawCirclesAndLabels(image, pointMap):
+    '''
+    This function is just to display the image with the labels that we predetermined,
+    it has no impact on the resulting calculations
+    :param image: The image that is going to be drawn on. This is the image that is ALREADY ALIGNED.
+    :param pointMap:
+    :return:
+    '''
+
+    copyImage = copy.deepcopy(image)
+
+    for key, value in pointMap.items():
+
+        cv2.circle(copyImage, value, 60, (255, 255, 255), 2)
+
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        fontScale = 2
+        color = (255, 255, 255)
+        thickness = 2
+
+        copyImage = cv2.putText(copyImage, key, value, font,
+                            fontScale, color, thickness, cv2.LINE_AA)
+    return copyImage
+
+
+
+
+
+
+def create_circular_mask(h, w, center=None, radius=None):
+    '''
+    **Note: height and width must be exactly the same as the image we are making a mask for
+     bc we multiply the matrices together in the end
+    :param h: height of the image we are creating a mask for
+    :param w: width of the image we are creating a mask for
+    :param center: The center point of the circle
+    :param radius: The specified radius that we choose: in our case, we are defaulting to 60px
+    :return:
+    '''
+
+    if center is None: # use the middle of the image
+        center = (int(w/2), int(h/2))
+    if radius is None: # use the smallest distance between the center and image walls
+        radius = min(center[0], center[1], w-center[0], h-center[1])
+
+    Y, X = np.ogrid[:h, :w]
+    dist_from_center = np.sqrt((X - center[0])**2 + (Y-center[1])**2)
+
+    mask = dist_from_center <= radius
+    return mask
+
+
+
+
+
+
+def findAverageLightIntensity(maskedImage, mask):
+
+    '''
+
+    :param maskedImage: This is the original image that has been multiplied with the mask
+    :param mask: This is the mask that was made to 'cut out' the
+    :return: returns the average, which is found to be the sum of the pixel values divided by the area of the mask
+    '''
+
+    sum_of_pixels = np.sum(maskedImage)
+    area = np.sum(mask)
+    return(sum_of_pixels/area)
+
+
+
+
+
+
+def findAllCircleAveragesFor(imagePath, displayCirclesBool):
+    '''
+
+    :param imagePath: the image path for the image that we are going to find all the averages for
+    :param displayCirclesBool: Determines if the images will be displayed on the screen, these images
+    are labeled as their corresponding number (or letter if it is an alignment marker) and the circles will be outlined
+    :return:
+    '''
+
+
+    pointMap = {
+        'A': (296, 291),
+        'B': (1374, 291),
+        'C': (296, 1308),
+        'D': (1374, 1308),
+        '1': (690, 440),
+        '2': (985, 440),
+        '3': (445,665),
+        '4': (690,665),
+        '5': (985, 665),
+        '6': (1225, 665),
+        '7': (835, 800),
+        '8': (445, 935),
+        '9': (690, 935),
+        '10': (985, 935),
+        '11': (1225, 935),
+        '12': (690, 1170),
+        '13': (985, 1170)
+    }
+
+    #Crops image and aligns it to our grid
+    image = cv2.imread(imagePath)
+    image = cropImage(image)
+    aligned_image = alignImage(image)
+
+
+    # If we choose, the aligned image with labels will
+    # pop up on screen to ensure that circles are on correct points
+    if displayCirclesBool == True:
+        labeled_image = drawCirclesAndLabels(aligned_image, pointMap)
+        cv2.imshow("Labeled Circles for " + imagePath, labeled_image)
+
+
+
+    #Prints the path and afterwards displays the average for each circle.
+    print("\n\nAverages for image path: " + imagePath + "\n")
+
+    aligned_image = cv2.cvtColor(aligned_image, cv2.COLOR_BGR2GRAY)
+    h, w = aligned_image.shape[:2]
+    for key, value in pointMap.items():
+
+        #We do not need to print the average intensity for the alignment markers
+        if key not in ['A', 'B', 'C', 'D']:
+
+            radius_of_mask = 60
+            centerPoint = value
+            mask = create_circular_mask(h, w, centerPoint, radius_of_mask)
+            maskedImage = np.multiply(aligned_image, mask)
+
+            averageIntensity = findAverageLightIntensity(maskedImage, mask)
+            print(key + ": " + str(averageIntensity))
+
+
+
+
+
+
+def averagesOfAllImages(displayCirclesBool = False):
+    '''
+    This function simply runs the findAllCircleAveragesFor every image in our list. The list is compiled by looking
+    into the "fluorescent/" directory and selecting the files that begin with "image" as the file name. This is
+    to prevent any other types of files to get passed in. This also means that any test image must be named
+    as "image*". It just has to start with the word image.
+
+    :param displayCirclesBool:
+    :return:
+    '''
+
+    mypath = 'fluorescent/'
+    imageList = [f for f in listdir(mypath) if (isfile(join(mypath, f)) and ''.join(f[0:5]) == 'image')]
+    imageList = sorted(imageList)
+
+    #print(imageList)
+    #imageList = ['image_1.tif', 'image_2.tif', 'image_3.tif', 'image_4.tif', 'image_5.tif', 'image_6.tif']
+
+    for image in imageList:
+        findAllCircleAveragesFor(mypath + image, displayCirclesBool)
+
 
 
 
@@ -292,59 +424,40 @@ def alignImage2(image):
 def main():
 
 
-
-    imagePath = 'fluorescent/image_6.tif'
-    image = cv2.imread(imagePath)
-    image = cropImage(image)
-    cv2.imshow("Original", image)
-
-
-
-
-
-
-
-
-    shifted = alignImage2(image)
-
-    cv2.imshow("shifted", shifted)
-
-
-
-
-
-
-
-
-    '''
-    binarizedImage = binarizeErodeAndDilate(image)
-    #cv2.imshow("Binarized", binarizedImage)
-
-    coords = houghTransformReturnCoords(binarizedImage, image, True)
-    cv2.imshow("Houghed", image)
-
-    rotatedAndShifted = alignImage(coords, image)
-    #cv2.imshow("RotatedShift", rotatedAndShifted)
-
-    #val = matchTemplate(rotatedAndShifted)
-
-
-    secBinarizedImage = binarizeErodeAndDilate(rotatedAndShifted)
-
-    secCoords = houghTransformReturnCoords(secBinarizedImage, rotatedAndShifted, False)
-
-
-    print(secCoords)
-    cv2.circle(rotatedAndShifted, (289, 297), 80, (255, 255, 0), 2)
-    cv2.circle(rotatedAndShifted, (1379, 297), 80, (255, 255, 0), 2)
-    #cv2.imshow("Second Hough", rotatedAndShifted)
-
-
-    '''
-
-
+    #Change to true to display images with circles drawn on
+    averagesOfAllImages(False)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
+
+
+
 if __name__ == '__main__':
     main()
+
+
+
+
+'''
+This is a list of where all the circles are located in our fixed grid. This is how I originally found them
+This is now irrelevant, but here for reference
+
+cv2.circle(aligned_image, (690, 440), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (985, 440), 60, (255, 155, 70), 2)
+
+cv2.circle(aligned_image, (445, 665), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (690, 665), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (985, 665), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (1225, 665), 60, (255, 155, 70), 2)
+
+cv2.circle(aligned_image, (835, 800), 60, (255, 155, 70), 2)
+
+cv2.circle(aligned_image, (445, 935), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (690, 935), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (985, 935), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (1225, 935), 60, (255, 155, 70), 2)
+
+cv2.circle(aligned_image, (690, 1170), 60, (255, 155, 70), 2)
+cv2.circle(aligned_image, (985, 1170), 60, (255, 155, 70), 2)
+'''
+

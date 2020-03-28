@@ -116,7 +116,7 @@ def findAngle(alignA, alignB):
 
     :param alignA: alignment marker A
     :param alignB: alignment marker B
-    :return: (angleINRADIANS, direction)
+    :return: angleINDEGREES
 
     '''
 
@@ -130,7 +130,14 @@ def findAngle(alignA, alignB):
 
     deltaY = abs(deltaY)
 
-    return (math.atan(deltaY/deltaX), direction)
+    angleToRotate = math.atan(deltaY/deltaX)
+
+    if direction == "CW":
+        angleToRotate = -1 * angleToRotate * (180/math.pi)
+    else:
+        angleToRotate = angleToRotate * (180/math.pi)
+
+    return angleToRotate
 
 
 
@@ -168,31 +175,6 @@ def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
     rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
 
     return rotatedImg
-
-
-
-
-
-
-def rotateImage(image, alignA, alignB):
-    '''
-    This function calls the findAngle function and we use the return values from that function to pass into the
-     rotateAndScale function which actually does the rotation
-    :param image: image to rotate
-    :param alignA: coordinates for alignment marker A
-    :param alignB: coordinates for alignment marker B
-    :return: rotated image
-    '''
-
-    angleToRotate, direction = findAngle(alignA, alignB)
-
-    if direction == "CW":
-        angleToRotate = -1 * angleToRotate * (180/math.pi)
-    else:
-        angleToRotate = angleToRotate * (180/math.pi)
-
-    return rotateAndScale(image, 1, angleToRotate)
-
 
 
 
@@ -237,7 +219,8 @@ def alignImage(image):
     # Rotates the image
     alignA = matchTemplate(image, "template_A")
     alignB = matchTemplate(image, "template_B")
-    rotated_image = rotateImage(image, alignA, alignB)
+    angle = findAngle(alignA, alignB)
+    rotated_image = rotateAndScale(image, 1, angle)
 
     # Shifts the image
     new_alignA = matchTemplate(rotated_image, "template_A")
