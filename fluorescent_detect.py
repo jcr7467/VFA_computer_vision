@@ -423,7 +423,9 @@ def averagesOfAllImages(displayCirclesBool = False):
 
 def main():
 
-    averagesOfAllImages(True)
+
+    #Change to true to display images with circles drawn on
+    averagesOfAllImages(False)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
