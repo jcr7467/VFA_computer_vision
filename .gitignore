@@ -3,4 +3,5 @@ __pycache__/
 images/
 newImages/
 fluorescent/
-fluorescent_templates/
+tests/
+datasets/tiff*
