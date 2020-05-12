@@ -25,6 +25,21 @@ We repeat this process for every image in the fluorescent/ directory, which hous
 '''
 
 
+
+'''
+
+Zach's notes:
+
+Apply rotation matrix directly to the x&y map points that I already have
+
+Use corner detection and compare time usage compared to templates
+
+Save the processed images (the ones with the circles drawn on top of them) so that we can troubleshoot
+
+
+'''
+
+
 import cv2
 import numpy as np
 import math
@@ -35,7 +50,7 @@ from os import listdir
 from os.path import isfile, join
 
 
-
+IMGLOBAL = "hey"
 
 
 def cropImage(cropMe):
@@ -46,7 +61,7 @@ def cropImage(cropMe):
     :return:
      params of return statement are in [Y, X] cropping ranges
     '''
-
+    print(IMGLOBAL)
     return cropMe[1800:3400, 760:2430]
 
 
@@ -74,7 +89,7 @@ def matchTemplate(image, template):
     }
 
 
-    template = cv2.imread('fluorescent_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
+    template = cv2.imread('alignment_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
 
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -146,17 +161,17 @@ def findAngle(alignA, alignB):
 
 def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
     '''
-
     :param img: the image that will get rotated and returned
     :param scaleFactor: option to enlarge, we always use at 1
     :param degreesCCW: DEGREES NOT RADIANS to rotate CCW. Neg value will turn CW
     :return: rotated image
     '''
+    #Apply M directly to points of x and y
 
 
     (oldY,oldX) = (img.shape[0], img.shape[1]) #note: numpy uses (y,x) convention but most OpenCV functions use (x,y)
     M = cv2.getRotationMatrix2D(center=(oldX/2,oldY/2), angle=degreesCCW, scale=scaleFactor) #rotate about center of image.
-
+    #print(np.shape(M))
     #choose a new image size.
     newX,newY = oldX*scaleFactor,oldY*scaleFactor
     #include this if you want to prevent corners being cut off
@@ -172,7 +187,7 @@ def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
     M[0,2] += tx #third column of matrix holds translation, which takes effect after rotation.
     M[1,2] += ty
 
-    rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
+    rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX), int(newY)))
 
     return rotatedImg
 
@@ -408,7 +423,7 @@ def main():
 
 
     #Change to true to display images with circles drawn on
-    averagesOfAllImages(False)
+    averagesOfAllImages(True)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
