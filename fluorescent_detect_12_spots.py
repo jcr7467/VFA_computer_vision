@@ -39,7 +39,6 @@ DISTANCE_FROM_A_TO_B = 1358
 
 
 def cropImage(cropMe):
-    
     '''
     This function simply crops the image that we are working with into the specified
     dimensions that we have hard coded: 2540 x 2400 -> width x height
@@ -126,6 +125,24 @@ def matchTemplate(image, template):
 
 
 def findScaleFactor(alignA, alignB):
+    '''
+    The purpose of this function is to find the scaling that we should apply to the image during the alignment process.
+    We have a set value (based off of our map) that should be the distance between alignment markers A & B.
+    This is what DISTANCE_FROM_A_TO_B represents.
+
+    Then, using the coordinates from the template match, we calculate what the actual distance between the two alignment markers are
+    and compute a ratio which will signal what we should scale the image by to get it to match our map.
+
+    NOTE: This function uses DISTANCE_FROM_A_TO_B, which is a HORIZONTAL relationship.
+    i.e. A & B have the same Y-value (horizontal value).
+
+    If you tried to do this for vertical alignment markers, e.g. A & C, the value would be off
+
+
+    :param alignA:
+    :param alignB:
+    :return:
+    '''
     deltaX = abs(int(alignA[0]) - int(alignB[0]))
     deltaY = int(alignA[1]) - int(alignB[1])
     deltaY = abs(deltaY)
