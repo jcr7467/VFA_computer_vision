@@ -29,12 +29,23 @@ from os.path import isfile, join, isdir
 
 
 MASK_RADIUS = 50
+ALIGNMENT_MARKER_A_MAP_LOCATION = (591, 528)
+ALIGNMENT_MARKER_B_MAP_LOCATION = (1949, 528)
+DISTANCE_FROM_A_TO_B = 1358
+#rawpy to turn dng images to tif images
+
+#refining spot map
+
 
 
 def cropImage(cropMe):
+    
     '''
     This function simply crops the image that we are working with into the specified
-    dimensions that we have hard coded: 1670 x 1600 -> width x height
+    dimensions that we have hard coded: 2540 x 2400 -> width x height
+
+    cropMe[1200:3600, 560:3100]
+
     :param cropMe: image to be cropped
     :return:
      params of return statement are in [Y, X] cropping ranges
@@ -50,8 +61,12 @@ def cropImage(cropMe):
 def matchTemplate(image, template):
     '''
     This function finds the alignment markers which our program uses to correctly orient the image to our grid
-    If we changed our template to another value, we would simply add the option to our dictionary and the add
-    the image to our flurorescent_templates directory
+    If we changed our template to another value(added new template, modified old one, etc), we would simply add the
+    option to our dictionary and then add the image to our alignment_templates directory.
+
+    This function partitions the image into two sections: the right side and the left side
+    This is in order to not confuse the templates (mainly due to the fact that alignment marker B & C are identical)
+
     :param image: image to match template to
     :param template: input option to determine the template to use
     :return:
@@ -59,41 +74,50 @@ def matchTemplate(image, template):
 
 
     template_dictionary = {
-        'template_A': 'checker_A.tif',
-        'template_B': 'checker_B.tif',
+        'template_A': 'alignment_A.tif',
+        'template_B': 'alignment_B.tif',
+        'template_C': 'alignment_C.tif',
+        'template_D': 'alignment_D.tif'
     }
 
-    if template == 'template_A':
+    if template == 'template_A' or template == 'template_C':
         partition = 'A'
     else:
         partition = 'B'
 
+    # Reads teh template image from the alignment_templates directory
     template = cv2.imread('alignment_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
-
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
+    ######### Partitioning of image
     if partition == 'B':
+        # We are going to look at the right partition
         gray_image = gray_image[0:2400,1225:2450]
+    elif partition == 'A':
+        # We are going to look at the left partition
+        gray_image = gray_image[0:2400, 0:1225]
 
+
+
+
+    ########## Actually completing template match
     w,h = template.shape[::-1]
-
     result = cv2.matchTemplate(gray_image, template, cv2.TM_CCOEFF_NORMED)
 
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
+    ##########This section calculates the midpoint of the square that the template matched to
+    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
     top_left = max_loc
     bottom_right = (top_left[0] + w, top_left[1] + h)
-
-
     deltaX = bottom_right[0] - top_left[0]
     deltaY = bottom_right[1] - top_left[1]
     midXPoint = top_left[0] + deltaX//2
     midYPoint = top_left[1] + deltaY//2
 
 
-    #cv2.rectangle(image, top_left, bottom_right, 255, 2)
-    #cv2.circle(image, (midXPoint, midYPoint), 80, (255, 255, 0), 2)
-    #cv2.circle(image, (midXPoint, midYPoint), 2, (255, 255, 0), 2)
+    #We run this if we were looking at the right side of the image
+    #This is because the midpoint for X would be relative to the cropped image we fed into the template matcher
+    # However, we have to add 1225 back to get the x value with respect to the entire image
     if partition == 'B':
         midXPoint = midXPoint + 1225
 
@@ -101,15 +125,35 @@ def matchTemplate(image, template):
 
 
 
+def findScaleFactor(alignA, alignB):
+    deltaX = abs(int(alignA[0]) - int(alignB[0]))
+    deltaY = int(alignA[1]) - int(alignB[1])
+    deltaY = abs(deltaY)
 
+    distance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    ratioToScale = DISTANCE_FROM_A_TO_B / distance
+    #print("Distance: " + str(distance))
+    #print("Ratio: " + str(ratioToScale))
+
+
+    return ratioToScale
 
 
 def findAngle(alignA, alignB):
     '''
-    This function finds the corresponding angle between the two top alignment markers, and also returns which
+    This function finds the corresponding angle between the two alignment markers passed in, and also returns which
      direction they should be turned to be on the same axis.
-    I could probably remake this to just return either a positive or negative angle, but this works for now
+
+     Also note that the order in which these are passed in is also important.
+     We always pass them in from left to right when we look at the image,
+
+     e.g. always alignA, alignB or alignC, alignD
+
+        but never alignB, alignA
+
     -----> RETURNS ANGLE IN DEGREES <-----
+
     :param alignA: alignment marker A
     :param alignB: alignment marker B
     :return: angleINDEGREES
@@ -142,7 +186,7 @@ def findAngle(alignA, alignB):
 def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
     '''
     :param img: the image that will get rotated and returned
-    :param scaleFactor: option to enlarge, we always use at 1
+    :param scaleFactor: option to scale image
     :param degreesCCW: DEGREES NOT RADIANS to rotate CCW. Neg value will turn CW
     :return: rotated image
     '''
@@ -185,7 +229,6 @@ def shiftBy(deltaX, deltaY, img):
     '''
 
     num_rows, num_cols = img.shape[:2]
-
     translation_matrix = np.float32([ [1,0,deltaX], [0,1,deltaY] ])
     img_translation = cv2.warpAffine(img, translation_matrix, (num_cols, num_rows))
 
@@ -199,29 +242,56 @@ def shiftBy(deltaX, deltaY, img):
 def alignImage(image, image_name):
     '''
     This function combines the shiftBy function and the rotateImage function into one.
-    Essentially places our image on our predetermined grid. First it rotates the image,
+    Essentially places our image on our predetermined grid. First it rotates the image (using avg angle between A-B & C-D),
     and then it finds the new coordinates for Alignment Marker A. Using these new coordinates,
     it shifts the entire image such that the new Alignment Marker A coordinates are in the spot we want them to be.
-    FOR THIS SETUP, WE WANT ALIGNMENT MARKER A TO BE ON COORDINATES: -> (296, 291)
+
+    FOR THIS SETUP, WE WANT ALIGNMENT MARKER A TO BE ON COORDINATES: -> (591, 528)
+    This value is a constant up top named ALIGNMENT_MARKER_A_MAP_LOCATION^
+
     :param image: image to be aligned
     :return: shifted and rotated image
     '''
 
 
-    # Rotates the image
+    ############## Preparing to rotate and scale the image
     alignA = matchTemplate(image, "template_A")
     alignB = matchTemplate(image, "template_B")
-    angle = findAngle(alignA, alignB)
-    if angle > 45:
-        print(image_name + ' is a bad image, it was rotated ' + angle + ' degrees, unexpected amount')
-    rotated_image = rotateAndScale(image, 1, angle)
+    alignC = matchTemplate(image, "template_C")
+    alignD = matchTemplate(image, "template_D")
 
-    # Shifts the image
+    angle1 = findAngle(alignA, alignB)
+    angle2 = findAngle(alignC, alignD)
+    avg_angle = (angle1 + angle2)/2
+
+    scaleFactor1 = findScaleFactor(alignA, alignB)
+    scaleFactor2 = findScaleFactor(alignC, alignD)
+    avg_scale_factor = (scaleFactor1 + scaleFactor2)/2
+    #print(avg_scale_factor)
+
+
+
+    ############## Basically used as a threshold, given that the test is inserted correctly,
+    # it should never be larger than 45 degrees
+    if abs(avg_angle) > 45:
+        print(image_name + ' is a bad image, it was rotated ' + avg_angle + ' degrees, unexpected amount')
+
+
+    ########### Actually rotates image
+    rotated_image = rotateAndScale(image, avg_scale_factor, avg_angle)
+
+
+
+
+    ############### Shifts the image
     new_alignA = matchTemplate(rotated_image, "template_A")
     alignAX = new_alignA[0]
     alignAY = new_alignA[1]
 
-    shifted_and_rotated = shiftBy(591 - alignAX, 528 - alignAY, rotated_image)
+    shiftBy_x = ALIGNMENT_MARKER_A_MAP_LOCATION[0] - alignAX
+    shiftBy_y = ALIGNMENT_MARKER_A_MAP_LOCATION[1] - alignAY
+
+    shifted_and_rotated = shiftBy(shiftBy_x, shiftBy_y, rotated_image)
 
 
     return shifted_and_rotated
@@ -240,10 +310,14 @@ def drawCirclesAndLabels(already_aligned_image, pointMap):
     :return:
     '''
 
+    ############This is because of Python's pass by object reference,
+    # in order to not modify the version passed in, we make a deep copy
     copyImage = copy.deepcopy(already_aligned_image)
+
 
     for key, value in pointMap.items():
         if key not in ['A','B','C','D']:
+
             cv2.circle(copyImage, value, MASK_RADIUS, (255, 255, 255), 2)
 
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -307,12 +381,19 @@ def findAverageLightIntensity(maskedImage, mask):
 def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
     '''
     :param imagePath: the image path for the image that we are going to find all the averages for
-    :param displayCirclesBool: Determines if the images will be displayed on the screen, these images
-    are labeled as their corresponding number (or letter if it is an alignment marker) and the circles will be outlined
+    :param image_name: This is the name of the image that we are going to find all the averages for
+    :param displayCirclesBool: Determines if the images will be displayed on the screen, or saved to a file
+
+        True: The images will be output to the screen
+
+        False: The images will be saved to a directory named "processed" inside
+        the directory the user specified at the beginning
+
+
     :return:
     '''
 
-
+    #### THIS PART IS ESSENTIAL, THIS IS OUR SPOT MAP THAT OUR ENTIRE PROGRAM IS BASED ON
     pointMap = {
         'A': (591,528),
         'B': (1949,528),
@@ -332,26 +413,33 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
         '12': (1425,1695)
     }
 
-    output = [] #construct output array
+
+    ##### This output array will be returned and will be a row in the csv file
+    output = []
     output.append(image_name)
 
+
+
+
+
+    #### Crops image and aligns it to our grid
     full_image_path = imagePath + image_name
-    #Crops image and aligns it to our grid
     image = cv2.imread(full_image_path)
     image = cropImage(image)
     aligned_image = alignImage(image, image_name)
 
-    #label = 'spot' + str(folder) + '_' + str(count)
-    image_name = image_name.split('.')[0]
-    #print(image_name)
 
-    # If we choose, the aligned image with labels will
-    # pop up on screen to ensure that circles are on correct points
+    image_name = image_name.split('.')[0]
+
+
+
+
+
+    #### Either displays the result images on the screen or saves them to directory inside calling directory
     if displayCirclesBool == True:
         labeled_image = drawCirclesAndLabels(aligned_image, pointMap)
         cv2.imshow("Labeled Circles for " + image_name, labeled_image)
-        #cv2.waitKey(0)
-        #cv2.destroyAllWindows()
+
     else:
         labeled_image = drawCirclesAndLabels(aligned_image, pointMap)
         if not isdir(imagePath + 'processed/'):
@@ -359,13 +447,14 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
         cv2.imwrite(imagePath + 'processed/' + image_name + '_processed.tif', labeled_image)
 
 
-    #Prints the path and afterwards displays the average for each circle.
-    print(full_image_path)
 
+
+
+
+
+    ## Grayscale the image to begin masking process
     aligned_image = cv2.cvtColor(aligned_image, cv2.COLOR_BGR2GRAY)
     h, w = aligned_image.shape[:2]
-
-
 
     for key, value in pointMap.items():
 
@@ -380,6 +469,11 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
             averageIntensity = findAverageLightIntensity(maskedImage, mask)
             output.append(averageIntensity)
 
+
+
+    #Prints the path for the image that was just processed
+    print("Finished Processing: " + full_image_path)
+
     return output
 
 
@@ -388,34 +482,57 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
 
 def averagesOfAllImages(displayCirclesBool = False):
     '''
-    This function simply runs the findAllCircleAveragesFor every image in our list. The list is compiled by looking
-    into the "fluorescent/" directory and selecting the files that begin with "image" as the file name. This is
-    to prevent any other types of files to get passed in. This also means that any test image must be named
-    as "image*". It just has to start with the word image.
+
+    This function simply runs the findAllCircleAveragesFor every image in our list.
+
+    The list is compiled by first prompting the user for the name of the directory they would like to run a test on.
+    It then finds all the tif images inside of that directory and adds them to the list.
+
+    NOTE: THE REPOSITORY THE USER ENTERS MUST BE INSIDE 'datasets' DIRECTORY.
+
+    For each image, once it receives the intensity of each spot, it takes the information
+    and writes it to a csv file inside of the user-specified directory.
+
+    E.g. Say that we have a directory named 'tiff-conv1' inside the 'datasets' directory
+        Once the processing is done, inside 'datasets/tiff-conv1' there will be a csv file named 'tiff-conv1.csv'
+        containing all the informatino that we found
+
+
     :param displayCirclesBool:
     :return:
     '''
 
-    test_directory_name = input('Enter directory to test(must be inside of datasets directory, do not include path in name): ')
 
+    #### User specified test directory
+    test_directory_name = input('Enter directory to test(must be inside of datasets directory, do not include path in name): ')
     if test_directory_name[-1] != '/':
         test_directory_name += '/'
-
     test_directory_path= 'datasets/' + test_directory_name
 
-    #print(test_directory_path)
-    assert(isdir(test_directory_path)), "Error: Invalid directory"
 
+
+
+
+
+    ##Asserting that the directory input by user is valid and has images ending with .tif inside of it
+    assert(isdir(test_directory_path)), "Error: Invalid directory"
     imageList = [f for f in listdir(test_directory_path) if (isfile(join(test_directory_path, f))) and f.endswith('.tif')]
     assert (len(imageList) > 0), "Error: an empty directory was passed in, please check the directory"
+
 
     imageList = sorted(imageList)
     print(str(len(imageList)) + ' images imported...')
 
+
+
+
+
+
+    ##### Writes data acquired from list to our csv file
     i = 0
     matrix = np.ones(13)
     for image in imageList:
-        if i==0:
+        if i == 0:
             matrix = findAllCircleAveragesFor(test_directory_path, image, displayCirclesBool)
             i += 1
             continue
@@ -433,6 +550,10 @@ def main():
 
     #Change to true to display images with circles drawn on
     averagesOfAllImages(False)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 
 if __name__ == '__main__':
     main()
