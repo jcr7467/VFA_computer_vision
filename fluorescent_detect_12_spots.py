@@ -1,11 +1,11 @@
 '''
 HOW THIS PROGRAM WORKS ON A HIGH LEVEL:
-1. First it crops the image to our specified dimensions, to which right now it is set to 1670x1600 -> width x height
+1. First it crops the image to our specified dimensions, to which right now it is set to 2540x2400 -> width x height
 2. Then it uses template matching in order to find the top two alignment markers, and using the points
-of the alignment markers, it rotates the image.
+of the alignment markers, it rotates the image and scales the image if found necessary.
 3. Then it shifts the image to where the first alignment marker, Alignment Marker A, is at the spot we
 need it to be now that the image is upright and oriented correctly. In our case, we want that alignment
-marker A to be at the point (296, 291). Once the image is aligned, we then know where the other points are
+marker A to be at the point (591, 528). Once the image is aligned, we then know where the other points are
 because of the predefined grid that we made.
 4. Once the image is aligned, we make a mask for each individual circle, and multiply (element-wise) it by the original
 image to create a new image that outside of the mask, it is completely black (matrix value of 0) We calculate
@@ -13,7 +13,9 @@ the average light intensity by taking the sum of the image value (inside the mas
 their original values) divided by the sum of the mask
 (this is essentially just the area of the circle because inside the mask,
 there are only 1's and outside it there are only 0's)
-We repeat this process for every image in the fluorescent/ directory, which houses all our images that need analysis
+5. We repeat this process for every image in the directory the user specifies, which houses all
+ our images that need analysis. As long as our directory specified is inside the datasets directory,
+ it will work as expected
 '''
 
 
@@ -28,7 +30,7 @@ from os import listdir, mkdir
 from os.path import isfile, join, isdir
 
 
-MASK_RADIUS = 50
+MASK_RADIUS = 55
 ALIGNMENT_MARKER_A_MAP_LOCATION = (591, 528)
 ALIGNMENT_MARKER_B_MAP_LOCATION = (1949, 528)
 DISTANCE_FROM_A_TO_B = 1358
@@ -84,7 +86,8 @@ def matchTemplate(image, template):
     else:
         partition = 'B'
 
-    # Reads teh template image from the alignment_templates directory
+
+    # Reads the template image from the alignment_templates directory
     template = cv2.imread('alignment_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -124,6 +127,9 @@ def matchTemplate(image, template):
 
 
 
+
+
+
 def findScaleFactor(alignA, alignB):
     '''
     The purpose of this function is to find the scaling that we should apply to the image during the alignment process.
@@ -155,6 +161,10 @@ def findScaleFactor(alignA, alignB):
 
 
     return ratioToScale
+
+
+
+
 
 
 def findAngle(alignA, alignB):
@@ -230,6 +240,7 @@ def rotateAndScale(img, scaleFactor = 1, degreesCCW = 0):
     rotatedImg = cv2.warpAffine(img, M, dsize=(int(newX),int(newY)))
 
     return rotatedImg
+
 
 
 
@@ -332,6 +343,9 @@ def drawCirclesAndLabels(already_aligned_image, pointMap):
     copyImage = copy.deepcopy(already_aligned_image)
 
 
+    ##NOTE:
+    ##'key' is the name of the circle/alignment marker
+    ##'value' is the coordinate of its respective circle/alignment marker
     for key, value in pointMap.items():
         if key not in ['A','B','C','D']:
 
@@ -412,22 +426,22 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
 
     #### THIS PART IS ESSENTIAL, THIS IS OUR SPOT MAP THAT OUR ENTIRE PROGRAM IS BASED ON
     pointMap = {
-        'A': (591,528),
-        'B': (1949,528),
-        'C': (591,1872),
-        'D': (1949,1872),
-        '1': (1100,700),
-        '2': (1430,700),
-        '3': (760,1030),
-        '4': (1090,1025),
-        '5': (1425,1025),
-        '6': (1765,1032),
-        '7': (760,1365),
-        '8': (1090,1360),
-        '9': (1425,1360),
-        '10': (1760,1360),
-        '11': (1090,1695),
-        '12': (1425,1695)
+        'A': (591, 528),
+        'B': (1949, 528),
+        'C': (591, 1872),
+        'D': (1949, 1872),
+        '1': (1100, 700),
+        '2': (1430, 700),
+        '3': (763, 1030),
+        '4': (1100, 1025),
+        '5': (1430, 1025),
+        '6': (1770, 1032),
+        '7': (763, 1365),
+        '8': (1100, 1360),
+        '9': (1430, 1360),
+        '10': (1770, 1360),
+        '11': (1100, 1695),
+        '12': (1430, 1695)
     }
 
 
@@ -445,7 +459,7 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
     image = cropImage(image)
     aligned_image = alignImage(image, image_name)
 
-
+    ##So that we can create a new image name with _processed appended to it
     image_name = image_name.split('.')[0]
 
 
@@ -492,6 +506,7 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
     print("Finished Processing: " + full_image_path)
 
     return output
+
 
 
 
@@ -563,12 +578,18 @@ def averagesOfAllImages(displayCirclesBool = False):
 
 
 
+
+
+
 def main():
 
     #Change to true to display images with circles drawn on
     averagesOfAllImages(False)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+
+
 
 
 
@@ -580,7 +601,13 @@ if __name__ == '__main__':
 
 '''
 This is a list of where all the circles are located in our fixed grid. This is how I originally found them
+
+
 This is now irrelevant, but here for reference
+
+I first rotated an image from the sample data, and then manually took trial-and-error
+ approach to find where each circle's center should be located
+
 cv2.circle(aligned_image, (690, 440), 60, (255, 155, 70), 2)
 cv2.circle(aligned_image, (985, 440), 60, (255, 155, 70), 2)
 cv2.circle(aligned_image, (445, 665), 60, (255, 155, 70), 2)
