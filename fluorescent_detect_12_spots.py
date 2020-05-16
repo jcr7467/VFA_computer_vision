@@ -36,7 +36,6 @@ ALIGNMENT_MARKER_B_MAP_LOCATION = (1949, 528)
 DISTANCE_FROM_A_TO_B = 1358
 #rawpy to turn dng images to tif images
 
-#refining spot map
 
 
 
@@ -149,9 +148,10 @@ def findScaleFactor(alignA, alignB):
     :param alignB:
     :return:
     '''
+    assert(int(alignA[0]) <= int(alignB[0]))
     deltaX = abs(int(alignA[0]) - int(alignB[0]))
-    deltaY = int(alignA[1]) - int(alignB[1])
-    deltaY = abs(deltaY)
+    deltaY = abs(int(alignA[1]) - int(alignB[1]))
+
 
     distance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
 

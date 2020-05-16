@@ -3,5 +3,5 @@ __pycache__/
 images/
 newImages/
 fluorescent/
-tests/
+archive/
 datasets/tiff*
