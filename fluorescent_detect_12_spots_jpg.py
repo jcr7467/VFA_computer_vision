@@ -229,7 +229,7 @@ def averagesOfAllImages(displayCirclesBool = False):
     ##Asserting that the directory input by user is valid and has images ending with .tif inside of it
     assert(isdir(test_directory_path)), "Error: Invalid directory"
     imageList = [f for f in listdir(test_directory_path) if (isfile(join(test_directory_path, f))) and (f.endswith('.jpg') or f.endswith('.jpeg'))]
-    assert (len(imageList) > 0), "Error: an no jpg/jpeg images in this directory, please check the directory"
+    assert (len(imageList) > 0), "Error: No jpg/jpeg images in this directory, please check the directory"
 
 
     imageList = sorted(imageList)
