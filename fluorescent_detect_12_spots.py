@@ -182,6 +182,9 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
 
 
 
+
+
+
 def averagesOfAllImages(displayCirclesBool = False):
     '''
 
