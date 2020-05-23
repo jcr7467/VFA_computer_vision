@@ -34,6 +34,12 @@ i.e. If you have a new image that you have to change the cropping to (maybe bc i
     or you want to change the map, changing the values described above should be the only changes
     you make in order to make program still work
 
+However, if you change the image type (e.g. from tiff to jpg) you will need to
+change the code in the functions below
+
+There might be other corner cases where you have to change the code in the functions, but generally,
+you should be able to change just these constants
+
 '''
 
 import cv2
@@ -49,35 +55,42 @@ from helper_functions import create_circular_mask, \
 from os import listdir, mkdir
 from os.path import isfile, join, isdir
 
+ACOORD = (1012, 1112)
+BCOORD = (2340, 1112)
+CCOORD = (1012, 2442)
+DCOORD = (2340, 2442)
+
+
+
 
 #### THIS PART IS ESSENTIAL, THIS IS OUR SPOT MAP THAT OUR ENTIRE PROGRAM IS BASED ON
 pointMap = {
-    'A': (591, 528),
-    'B': (1949, 528),
-    'C': (591, 1872),
-    'D': (1949, 1872),
-    '1': (1100, 700),
-    '2': (1430, 700),
-    '3': (763, 1030),
-    '4': (1100, 1025),
-    '5': (1430, 1025),
-    '6': (1770, 1032),
-    '7': (763, 1365),
-    '8': (1100, 1360),
-    '9': (1430, 1360),
-    '10': (1770, 1360),
-    '11': (1100, 1695),
-    '12': (1430, 1695)
+    'A': (1012, 1112),
+    'B': (2340, 1112),
+    'C': (1012, 2442),
+    'D': (2340, 2442),
+    '1': (1840, 1280),
+    '2': (1515, 1280),
+    '3': (2170, 1610),
+    '4': (1840, 1610),
+    '5': (1515, 1610),
+    '6': (1185, 1610),
+    '7': (2170, 1935),
+    '8': (1840, 1935),
+    '9': (1515, 1935),
+    '10': (1185, 1935),
+    '11': (1840, 2265),
+    '12': (1515, 2265)
 }
 
 #Note: if you change this, only change the file name of
 # the template, dont change the keys of this dictionary
 # e.g. Do not change 'template_A'
 template_dictionary = {
-    'template_A': 'alignment_A.tif',
-    'template_B': 'alignment_B.tif',
-    'template_C': 'alignment_C.tif',
-    'template_D': 'alignment_D.tif'
+    'template_A': 'alignment_A.jpg',
+    'template_B': 'alignment_B.jpg',
+    'template_C': 'alignment_C.jpg',
+    'template_D': 'alignment_D.jpg'
 }
 
 
@@ -88,13 +101,10 @@ ALIGNMENT_MARKER_B_MAP_LOCATION = pointMap['B']
 DISTANCE_FROM_A_TO_B = ALIGNMENT_MARKER_B_MAP_LOCATION[0] - ALIGNMENT_MARKER_A_MAP_LOCATION[0]
 
 #CROP IMAGE DIMENSIONS CONSTANTS
-YMIN_BOUND = 1200
-YMAX_BOUND = 3600
-XMIN_BOUND = 560
-XMAX_BOUND = 3100
-
-
-
+YMIN_BOUND = 600
+YMAX_BOUND = 4200
+XMIN_BOUND = 200
+XMAX_BOUND = 3800
 
 
 
@@ -148,7 +158,7 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
         labeled_image = drawCirclesAndLabels(aligned_image, pointMap, MASK_RADIUS)
         if not isdir(imagePath + 'processed/'):
             mkdir(imagePath + 'processed/')
-        cv2.imwrite(imagePath + 'processed/' + image_name + '_processed.tif', labeled_image)
+        cv2.imwrite(imagePath + 'processed/' + image_name + '_processed.jpg', labeled_image)
 
 
 
@@ -218,17 +228,14 @@ def averagesOfAllImages(displayCirclesBool = False):
 
     ##Asserting that the directory input by user is valid and has images ending with .tif inside of it
     assert(isdir(test_directory_path)), "Error: Invalid directory"
-    imageList = [f for f in listdir(test_directory_path) if (isfile(join(test_directory_path, f))) and f.endswith('.tif')]
-    assert (len(imageList) > 0), "Error: an empty directory was passed in, please check the directory"
+    imageList = [f for f in listdir(test_directory_path) if (isfile(join(test_directory_path, f))) and (f.endswith('.jpg') or f.endswith('.jpeg'))]
+    assert (len(imageList) > 0), "Error: an no jpg/jpeg images in this directory, please check the directory"
 
 
     imageList = sorted(imageList)
     print(str(len(imageList)) + ' images imported...')
 
-
-
-
-
+    #testImage[:, :, 1]
 
     ##### Writes data acquired from list to our csv file
     i = 0
@@ -243,6 +250,7 @@ def averagesOfAllImages(displayCirclesBool = False):
     if not isdir(test_directory_path + 'csv/'):
         mkdir(test_directory_path + 'csv/')
     with open(test_directory_path + 'csv/' + test_directory_name[:-1] + '.csv', 'w+', newline='') as f:
+        #matrix = np.vstack([matrix, np.ones(13)])
         writer = csv.writer(f, delimiter = ',')
         writer.writerows(matrix)
 
