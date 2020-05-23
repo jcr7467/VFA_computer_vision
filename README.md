@@ -1,4 +1,6 @@
-The most updated file im working on is fluorescent_detect_12.py
+The most updated files im working on are fluorescent_detect_12.py and fluorescent_detect_12_jpg.py
+The difference between is what you'd expect: one works on jpg images and the other works on tiff images.
+These are designed to work on test directories which are either entirely jpg/jpeg or entirely tiff images
 
 Notes:
 1. This works with fluorescent images
