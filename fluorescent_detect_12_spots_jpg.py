@@ -167,7 +167,8 @@ def findAllCircleAveragesFor(imagePath, image_name, displayCirclesBool):
 
 
     ## Grayscale the image to begin masking process
-    aligned_image = cv2.cvtColor(aligned_image, cv2.COLOR_BGR2GRAY)
+    #aligned_image = cv2.cvtColor(aligned_image, cv2.COLOR_BGR2GRAY)
+    aligned_image = aligned_image[:, :, 1]
     h, w = aligned_image.shape[:2]
 
     for key, value in pointMap.items():

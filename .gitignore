@@ -4,5 +4,9 @@ images/
 newImages/
 fluorescent/
 archive/
-datasets/tiff*
+
 datasets/jpegdata
+datasets/jpegcolor
+datasets/tiff-conv 1
+datasets/tiff-conv 2
+datasets/colorimetric_tiff

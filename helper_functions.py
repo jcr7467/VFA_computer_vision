@@ -275,6 +275,7 @@ def matchTemplate(image, template_dictionary, template):
         partition = 'B'
 
 
+
     # Reads the template image from the alignment_templates directory
     template = cv2.imread('alignment_templates/' + template_dictionary[template], cv2.IMREAD_GRAYSCALE)
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -400,3 +401,57 @@ def drawCirclesAndLabels(already_aligned_image, pointMap, radius_to_draw):
         copyImage = cv2.putText(copyImage, key, value, font,
                             fontScale, color, thickness, cv2.LINE_AA)
     return copyImage
+
+
+
+
+def makeEven(num):
+    if num % 2 == 1:
+        num += 1
+    return int(num)
+
+
+
+def best_guess_boundaries(image_relative_path, template_dictionary):
+
+    image = cv2.imread("./datasets/" + image_relative_path)
+
+
+    align_A = matchTemplate(image, template_dictionary, "template_A")
+    align_B = matchTemplate(image, template_dictionary, "template_B")
+
+
+    angle = findAngle(align_A, align_B)
+
+    rotated = rotateAndScale(image, 1, angle)
+
+    align_A = matchTemplate(rotated, template_dictionary, "template_A")
+    align_B = matchTemplate(rotated, template_dictionary, "template_B")
+    align_C = matchTemplate(rotated, template_dictionary, "template_C")
+
+
+    delta_X = align_B[0] - align_A[0]
+    if delta_X % 2 == 1:
+        delta_X += 1
+
+    delta_Y = align_C[1] - align_A[1]
+    if delta_Y % 2 == 1:
+        delta_Y += 1
+
+    xmin_bound = align_A[0] - delta_X * (6/8)
+    xmax_bound = align_B[0] + delta_X * (6/8)
+    ymin_bound = align_A[1] - delta_Y * (6/8)
+    ymax_bound = align_C[1] + delta_Y * (6/8)
+
+    xmin_bound = makeEven(xmin_bound)
+    xmax_bound = makeEven(xmax_bound)
+    ymin_bound = makeEven(ymin_bound)
+    ymax_bound = makeEven(ymax_bound)
+
+    print("Try the following bounds")
+    print("YMIN_BOUND: " + str(ymin_bound))
+    print("YMAX_BOUND: " + str(ymax_bound))
+    print("XMIN_BOUND: " + str(xmin_bound))
+    print("XMAX_BOUND: " + str(xmax_bound))
+
+
